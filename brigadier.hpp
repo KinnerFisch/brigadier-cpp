@@ -27,7 +27,6 @@
 
 #include <set>
 #include <string>
-#include <cstring>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -97,37 +96,35 @@ namespace brigadier {
 		static constexpr wchar_t SYNTAX_DOUBLE_QUOTE = L'"';
 
 	public:
-		StringReader(std::wstring wstring) : string(std::move(wstring)) {}
+		StringReader(std::wstring wstring);
 
 		StringReader() = default;
 
-		std::wstring GetString() const { return string; }
-		void SetCursor(int cursor) { this->cursor = cursor; }
-		int GetRemainingLength() const { return static_cast<int>(string.length() - cursor); }
-		int GetTotalLength() const { return static_cast<int>(string.length()); }
-		int GetCursor() const { return cursor; }
-		std::wstring GetRead() const { return string.substr(0, cursor); }
-		std::wstring GetRemaining() const { return string.substr(cursor); }
-		bool CanRead(const int length) const { return static_cast<size_t>(cursor) + length <= string.length(); }
-		bool CanRead() const { return CanRead(1); }
-		wchar_t Peek() const { return Peek(0); }
-		wchar_t Peek(const int offset) const { return string.at(cursor + offset); }
-		wchar_t Read() { return string.at(cursor++); }
-		void Skip() { cursor++; }
+		std::wstring GetString() const;
+		void SetCursor(int cursor);
+		int GetRemainingLength() const;
+		int GetTotalLength() const;
+		int GetCursor() const;
+		std::wstring GetRead() const;
+		std::wstring GetRemaining() const;
+		bool CanRead(int length) const;
+		bool CanRead() const;
+		wchar_t Peek() const;
+		wchar_t Peek(int offset) const;
+		wchar_t Read();
+		void Skip();
 
-		static bool IsQuotedStringStart(const wchar_t c) { return c == SYNTAX_DOUBLE_QUOTE || c == SYNTAX_SINGLE_QUOTE; }
+		static bool IsQuotedStringStart(wchar_t c);
 
-		void SkipWhitespace() { while (CanRead() && Peek() == L' ') Skip(); }
+		void SkipWhitespace();
 
 		template<typename T>
 		T ReadValue();
 
-		static bool IsAllowedInUnquotedString(const wchar_t c) {
-			return (c >= L'0' && c <= L'9') || (c >= L'A' && c <= L'Z') || (c >= L'a' && c <= L'z') || (c == L'_' || c == L'-') || (c == L'.' || c == L'+');
-		}
+		static bool IsAllowedInUnquotedString(wchar_t c);
 
 		template<bool allow_float = true, bool allow_negative = true>
-		static bool IsAllowedNumber(const wchar_t c) { return (c >= L'0' && c <= L'9') || (allow_float && c == L'.') || (allow_negative && c == L'-'); }
+		static bool IsAllowedNumber(const wchar_t c) { return IsAllowedNumberImpl(c, allow_float, allow_negative); }
 
 		// defined in brigadier.cpp
 		std::wstring ReadUnquotedString();
@@ -141,6 +138,9 @@ namespace brigadier {
 		void Expect(wchar_t c);
 
 	private:
+		template<typename S> friend class CommandNode;
+		template<typename S> friend class LiteralCommandNode;
+		static bool IsAllowedNumberImpl(wchar_t c, bool allow_float, bool allow_negative);
 		std::wstring string;
 		int cursor = 0;
 	};
@@ -152,7 +152,7 @@ namespace brigadier {
 
 		ExceptionContext() = default;
 
-		ExceptionContext(StringReader const &reader) : input(reader.GetString()), cursor(reader.GetCursor()) {}
+		ExceptionContext(StringReader const &reader);
 
 		std::wstring input;
 		int cursor = -1;
@@ -166,7 +166,7 @@ namespace brigadier {
 		template<typename... Args>
 		CommandSyntaxException(ExceptionContext ctx, Args &&... args) : ctx(ctx), msg(std::move(CreateMessageApplyContext(ctx, args...))) {}
 
-		std::wstring const &What() const { return msg; }
+		std::wstring const &What() const;
 
 	private:
 		template<typename T>
@@ -193,9 +193,9 @@ namespace brigadier {
 		}
 
 	public:
-		int GetCursor() const { return ctx.cursor; }
+		int GetCursor() const;
 
-		std::wstring GetInput() const { return ctx.input; }
+		std::wstring GetInput() const;
 
 	private:
 		ExceptionContext ctx;
@@ -318,9 +318,9 @@ namespace brigadier {
 
 	class Suggestion {
 	public:
-		Suggestion(const StringRange range, std::wstring text, std::wstring tooltip) : range(range), text(std::move(text)), tooltip(std::move(tooltip)) {}
+		Suggestion(StringRange range, std::wstring text, std::wstring tooltip);
 
-		Suggestion(const StringRange range, std::wstring text) : range(range), text(std::move(text)) {}
+		Suggestion(StringRange range, std::wstring text);
 
 		StringRange GetRange() const { return range; }
 		std::wstring const &GetText() const { return text; }
@@ -334,9 +334,9 @@ namespace brigadier {
 		friend class Suggestions;
 		friend class SuggestionsBuilder;
 
-		Suggestion(std::wstring text, const StringRange range, std::wstring tooltip) : range(range), text(std::move(text)), tooltip(std::move(tooltip)) {}
+		Suggestion(std::wstring text, StringRange range, std::wstring tooltip);
 
-		Suggestion(std::wstring text, const StringRange range) : range(range), text(std::move(text)) {}
+		Suggestion(std::wstring text, StringRange range);
 
 	private:
 		StringRange range;
@@ -345,20 +345,14 @@ namespace brigadier {
 	};
 
 	struct CompareNoCase {
-		bool operator()(Suggestion const &a, Suggestion const &b) const {
-#ifdef __unix__
-			return wcscasecmp(a.GetText().c_str(), b.GetText().c_str()) < 0;
-#else
-			return _wcsicmp(a.GetText().c_str(), b.GetText().c_str()) < 0;
-#endif
-		}
+		bool operator()(Suggestion const &a, Suggestion const &b) const;
 	};
 
 	class Suggestions {
 	public:
-		Suggestions(const StringRange range, std::set<Suggestion, CompareNoCase> suggestions) : range(range), suggestions(std::move(suggestions)) {}
+		Suggestions(StringRange range, std::set<Suggestion, CompareNoCase> suggestions);
 
-		Suggestions() : Suggestions(StringRange::At(0), {}) {}
+		Suggestions();
 
 		StringRange GetRange() const { return range; }
 		std::set<Suggestion, CompareNoCase> const &GetList() const { return suggestions; }
@@ -378,9 +372,7 @@ namespace brigadier {
 
 	class SuggestionsBuilder {
 	public:
-		SuggestionsBuilder(const std::wstring& input, const std::wstring &inputLowerCase, const int start,
-		                   bool *cancel = nullptr) : start(start), input(input), inputLowerCase(inputLowerCase),
-		                   remaining(input.substr(start)), remainingLowerCase(inputLowerCase.substr(start)), cancel(cancel) {}
+		SuggestionsBuilder(const std::wstring& input, const std::wstring &inputLowerCase, int start, bool *cancel = nullptr);
 
 		int GetStart() const { return start; }
 		std::wstring GetInput() const { return input; }
@@ -421,7 +413,7 @@ namespace brigadier {
 
 		template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 		int AutoSuggest(T value, const std::wstring& input) {
-			if (std::wstring val = std::to_wstring(value); val.rfind(input.substr(0, val.length()), 0) == 0) {
+			if (std::wstring val = std::to_wstring(value); val.compare(0, (std::min)(input.length(), val.length()), input, 0, (std::min)(input.length(), val.length())) == 0) {
 				result.emplace_back(std::move(val), StringRange::Between(start, static_cast<int>(input.length())));
 				return 1;
 			}
@@ -430,7 +422,7 @@ namespace brigadier {
 
 		template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 		int AutoSuggest(T value, const std::wstring& tooltip, const std::wstring& input) {
-			if (std::wstring val = std::to_wstring(value); val.rfind(input.substr(0, val.length()), 0) == 0) {
+			if (std::wstring val = std::to_wstring(value); val.compare(0, (std::min)(input.length(), val.length()), input, 0, (std::min)(input.length(), val.length())) == 0) {
 				result.emplace_back(std::move(val), StringRange::Between(start, static_cast<int>(input.length())), tooltip);
 				return 1;
 			}
@@ -543,8 +535,8 @@ namespace brigadier {
 		}
 
 		void FindAmbiguities(AmbiguityConsumer<S> consumer) {
-			for (auto [child_name, child]: children) {
-				for (auto [sibling_name, sibling]: children) {
+			for (auto const &[child_name, child]: children) {
+				for (auto const &[sibling_name, sibling]: children) {
 					if (child == sibling) continue;
 
 					std::set<std::wstring> matches;
@@ -562,7 +554,7 @@ namespace brigadier {
 			if (!literals.empty()) {
 				const int cursor = input.GetCursor();
 				while (input.CanRead() && input.Peek() != L' ') input.Skip();
-				std::wstring text = input.GetString().substr(cursor, input.GetCursor() - cursor);
+			std::wstring text = input.string.substr(cursor, input.GetCursor() - cursor);
 				input.SetCursor(cursor);
 				auto literal = children.find(text);
 				if (literal != children.end() && literal->second->GetNodeType() ==
@@ -576,7 +568,7 @@ namespace brigadier {
 
 		bool HasCommand() {
 			if (GetCommand() != nullptr) return true;
-			for (auto [name, child]: children) if (child && child->HasCommand()) return true;
+			for (auto const &[name, child]: children) if (child && child->HasCommand()) return true;
 			return false;
 		}
 
@@ -700,7 +692,7 @@ namespace brigadier {
 		int Parse(StringReader &reader) const {
 			const int start = reader.GetCursor();
 			if (reader.CanRead(static_cast<int>(literal.length()))) {
-				if (reader.GetString().substr(start, literal.length()) == literal) {
+				if (reader.string.compare(start, literal.length(), literal) == 0) {
 					const int end = static_cast<int>(start + literal.length());
 					reader.SetCursor(end);
 					if (!reader.CanRead() || reader.Peek() == L' ') return end;
@@ -750,6 +742,11 @@ namespace brigadier {
 		GREEDY_PHRASE
 	};
 
+	namespace detail {
+		std::wstring EscapeStringArgument(const std::wstring& input);
+		std::wstring EscapeStringArgumentIfRequired(const std::wstring& input);
+	}
+
 	template<StringArgType strType>
 	class StringArgumentType : public ArgumentType<std::wstring> {
 	public:
@@ -779,22 +776,9 @@ namespace brigadier {
 			else return {L"\"quoted phrase\"", L"word", L"\"\""};
 		}
 
-		static std::wstring EscapeIfRequired(const std::wstring& input) {
-			for (const auto c: input) if (!StringReader::IsAllowedInUnquotedString(c)) return Escape(input);
-			return { input };
-		}
+		static std::wstring EscapeIfRequired(const std::wstring& input) { return detail::EscapeStringArgumentIfRequired(input); }
 
-		static std::wstring Escape(const std::wstring& input) {
-			std::wstring result = L"\"";
-
-			for (const auto c: input) {
-				if (c == L'\\' || c == L'\"') result += L'\\';
-				result += c;
-			}
-
-			result += L'\"';
-			return result;
-		}
+		static std::wstring Escape(const std::wstring& input) { return detail::EscapeStringArgument(input); }
 	};
 
 	REGISTER_ARGTYPE_SPEC(StringArgumentType, Word, StringArgType::SINGLE_WORD);

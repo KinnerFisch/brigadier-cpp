@@ -26,6 +26,63 @@
 #include "brigadier.hpp"
 
 namespace brigadier {
+	StringReader::StringReader(std::wstring wstring) : string(std::move(wstring)) {}
+	std::wstring StringReader::GetString() const { return string; }
+	void StringReader::SetCursor(const int cursor) { this->cursor = cursor; }
+	int StringReader::GetRemainingLength() const { return static_cast<int>(string.length() - cursor); }
+	int StringReader::GetTotalLength() const { return static_cast<int>(string.length()); }
+	int StringReader::GetCursor() const { return cursor; }
+	std::wstring StringReader::GetRead() const { return string.substr(0, cursor); }
+	std::wstring StringReader::GetRemaining() const { return string.substr(cursor); }
+	bool StringReader::CanRead(const int length) const { return static_cast<size_t>(cursor) + length <= string.length(); }
+	bool StringReader::CanRead() const { return CanRead(1); }
+	wchar_t StringReader::Peek() const { return Peek(0); }
+	wchar_t StringReader::Peek(const int offset) const { return string.at(cursor + offset); }
+	wchar_t StringReader::Read() { return string.at(cursor++); }
+	void StringReader::Skip() { cursor++; }
+	bool StringReader::IsQuotedStringStart(wchar_t c) { return c == SYNTAX_DOUBLE_QUOTE || c == SYNTAX_SINGLE_QUOTE; }
+	void StringReader::SkipWhitespace() { while (CanRead() && Peek() == L' ') Skip(); }
+	bool StringReader::IsAllowedInUnquotedString(const wchar_t c) {
+		return (c >= L'0' && c <= L'9') || (c >= L'A' && c <= L'Z') || (c >= L'a' && c <= L'z') || (c == L'_' || c == L'-') || (c == L'.' || c == L'+');
+	}
+	bool StringReader::IsAllowedNumberImpl(const wchar_t c, const bool allow_float, const bool allow_negative) {
+		return (c >= L'0' && c <= L'9') || (allow_float && c == L'.') || (allow_negative && c == L'-');
+	}
+	ExceptionContext::ExceptionContext(StringReader const &reader) : input(reader.GetString()), cursor(reader.GetCursor()) {}
+	std::wstring const &CommandSyntaxException::What() const { return msg; }
+	int CommandSyntaxException::GetCursor() const { return ctx.cursor; }
+	std::wstring CommandSyntaxException::GetInput() const { return ctx.input; }
+	bool CompareNoCase::operator()(Suggestion const &a, Suggestion const &b) const {
+#ifdef __unix__
+		return wcscasecmp(a.GetText().c_str(), b.GetText().c_str()) < 0;
+#else
+		return _wcsicmp(a.GetText().c_str(), b.GetText().c_str()) < 0;
+#endif
+	}
+	Suggestion::Suggestion(const StringRange range, std::wstring text, std::wstring tooltip) : range(range), text(std::move(text)), tooltip(std::move(tooltip)) {}
+	Suggestion::Suggestion(const StringRange range, std::wstring text) : range(range), text(std::move(text)) {}
+	Suggestion::Suggestion(std::wstring text, const StringRange range, std::wstring tooltip) : range(range), text(std::move(text)), tooltip(std::move(tooltip)) {}
+	Suggestion::Suggestion(std::wstring text, const StringRange range) : range(range), text(std::move(text)) {}
+	Suggestions::Suggestions(const StringRange range, std::set<Suggestion, CompareNoCase> suggestions) : range(range), suggestions(std::move(suggestions)) {}
+	Suggestions::Suggestions() : Suggestions(StringRange::At(0), {}) {}
+	SuggestionsBuilder::SuggestionsBuilder(const std::wstring& input, const std::wstring &inputLowerCase, const int start, bool *cancel) :
+		start(start), input(input), inputLowerCase(inputLowerCase), remaining(input.substr(start)),
+		remainingLowerCase(inputLowerCase.substr(start)), cancel(cancel) {}
+	namespace detail {
+		std::wstring EscapeStringArgument(const std::wstring& input) {
+			std::wstring result = L"\"";
+			for (const auto c: input) {
+				if (c == L'\\' || c == L'\"') result += L'\\';
+				result += c;
+			}
+			result += L'\"';
+			return result;
+		}
+		std::wstring EscapeStringArgumentIfRequired(const std::wstring& input) {
+			for (const auto c: input) if (!StringReader::IsAllowedInUnquotedString(c)) return EscapeStringArgument(input);
+			return { input };
+		}
+	}
 	// ============================================================
 	// StringReader
 	// ============================================================
@@ -132,7 +189,7 @@ namespace brigadier {
 		return result;
 	}
 
-	void Suggestion::Expand(const std::wstring& command, StringRange range) {
+	void Suggestion::Expand(const std::wstring& command, const StringRange range) {
 		if (this->range == range) return;
 
 		if (range.GetStart() < this->range.GetStart()) text.insert(0, command.substr(range.GetStart(), this->range.GetStart() - range.GetStart()));
@@ -210,7 +267,7 @@ namespace brigadier {
 	}
 
 	int SuggestionsBuilder::AutoSuggest(const std::wstring& text, const std::wstring& input) {
-		if (text.rfind(input.substr(0, text.length()), 0) == 0) {
+		if (text.compare(0, (std::min)(input.length(), text.length()), input, 0, (std::min)(input.length(), text.length())) == 0) {
 			Suggest(text);
 			return 1;
 		}
@@ -218,7 +275,7 @@ namespace brigadier {
 	}
 
 	int SuggestionsBuilder::AutoSuggest(const std::wstring& text, const std::wstring& tooltip, const std::wstring& input) {
-		if (text.rfind(input.substr(0, text.length()), 0) == 0) {
+		if (text.compare(0, (std::min)(input.length(), text.length()), input, 0, (std::min)(input.length(), text.length())) == 0) {
 			Suggest(text, tooltip);
 			return 1;
 		}
@@ -230,7 +287,7 @@ namespace brigadier {
 		return *this;
 	}
 
-	void SuggestionsBuilder::SetOffset(int start) {
+	void SuggestionsBuilder::SetOffset(const int start) {
 		this->start = start;
 		remaining = input.substr(start);
 		remainingLowerCase = inputLowerCase.substr(start);
