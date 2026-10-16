@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Tomasz Karpi
+ * Copyright (c) 2022 Tomasz Karpiñski
  * Copyright (c) 2026 KinnerFisch
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
