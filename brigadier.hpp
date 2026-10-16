@@ -561,9 +561,9 @@ namespace brigadier {
 				    CommandNodeType::LiteralCommandNode) {
 					return std::tuple<std::shared_ptr<CommandNode> *, size_t>(&literal->second, 1);
 				}
-				return std::tuple<std::shared_ptr<CommandNode> *, size_t>(static_cast<std::shared_ptr<CommandNode> *>(arguments.data()), arguments.size());
+				return std::tuple<std::shared_ptr<CommandNode> *, size_t>(reinterpret_cast<std::shared_ptr<CommandNode> *>(arguments.data()), arguments.size());
 			}
-			return std::tuple<std::shared_ptr<CommandNode> *, size_t>(static_cast<std::shared_ptr<CommandNode> *>(arguments.data()), arguments.size());
+			return std::tuple<std::shared_ptr<CommandNode> *, size_t>(reinterpret_cast<std::shared_ptr<CommandNode> *>(arguments.data()), arguments.size());
 		}
 
 		bool HasCommand() {
@@ -906,7 +906,7 @@ namespace brigadier {
 
 		template<typename ArgType>
 		static constexpr size_t Create() {
-			return (static_cast<uintptr_t>(ArgType::GetTypeName().data()) + (sizeof(typename ArgType::type) << 24) + (sizeof(ArgType) << 8));
+			return (reinterpret_cast<uintptr_t>(ArgType::GetTypeName().data()) + (sizeof(typename ArgType::type) << 24) + (sizeof(ArgType) << 8));
 		}
 
 		bool operator==(TypeInfo const &other) const { return hash == other.hash; }
