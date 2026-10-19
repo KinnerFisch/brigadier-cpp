@@ -1021,7 +1021,7 @@ namespace brigadier {
 		ArgType::type GetArgument(const std::wstring &name);
 
 		template<typename ArgType>
-		ArgType::type GetArgumentOr(const std::wstring &name, const ArgType::type &default_value);
+		ArgType::type GetArgumentOr(const std::wstring &name, const typename ArgType::type &default_value);
 
 		~CommandContext();
 
