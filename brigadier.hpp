@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Tomasz Karpiñski
+ * Copyright (c) 2022 Tomasz Karpi
  * Copyright (c) 2026 KinnerFisch
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +37,8 @@
 #include <algorithm>
 #include <limits>
 #include <optional>
+
+#pragma comment(lib, "brigadier.lib")
 
 // Following code makes that you don't have to specify command source type inside arguments.
 // Command source type is automatically distributed from dispatcher.
@@ -543,10 +545,10 @@ namespace brigadier {
 
 					for (auto input: child->GetExamples()) if (sibling->IsValidInput(input)) matches.insert(input);
 
-					if (!matches.empty()) consumer(this, child, sibling, matches);
+					if (!matches.empty()) consumer(this, child.get(), sibling.get(), matches);
 				}
 
-				child.FindAmbiguities(consumer);
+				child->FindAmbiguities(consumer);
 			}
 		}
 
@@ -2355,7 +2357,7 @@ namespace brigadier {
 		CommandNode<S> *FindNode(std::vector<std::wstring> const &path) {
 			CommandNode<S> *node = root.get();
 			for (auto &name: path) {
-				node = node->GetChild(name);
+				node = node->GetChild(name).get();
 				if (node == nullptr) return nullptr;
 			}
 			return node;
