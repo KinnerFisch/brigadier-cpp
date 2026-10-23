@@ -38,8 +38,6 @@
 #include <limits>
 #include <optional>
 
-#pragma comment(lib, "brigadier.lib")
-
 // Following code makes that you don't have to specify command source type inside arguments.
 // Command source type is automatically distributed from dispatcher.
 
